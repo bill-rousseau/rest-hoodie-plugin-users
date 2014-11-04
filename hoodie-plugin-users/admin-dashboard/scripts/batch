@@ -1,0 +1,107 @@
+//here is the batch to keep the code after a grunt build
+
+UsersView.prototype.updatePlan = function(event) {
+      var $btn, $form, id, plan;
+      event.preventDefault();
+      id = $(event.currentTarget).closest('form').data('id');
+      $form = $(event.currentTarget);
+      $btn = $form.find('[type="submit"]');
+      plan = $form.find('[name="plan"]').val();
+      if (plan) {
+        $btn.attr('disabled', 'disabled');
+        $form.find('.submitMessage').text("Updating plan");
+        return hoodieAdmin.user.find('user', id)
+	        .fail(function(data) {
+	          $btn.attr('disabled', null);
+	          return $form.find('.submitMessage').text("Error: could not update plan");
+	        })
+	        .done(function(data) {
+	        	return hoodieAdmin.open(data.database).findAll()
+		        	.fail(function(docs) {
+			          	$btn.attr('disabled', null);
+			          	return $form.find('.submitMessage').text("Error: could not update plan");
+			        })
+			        .done(function(docs) {
+			        	var doc = docs.find(function(item) {
+			        		return (item.id === 'subscription/prototypoOwnSubscription');
+			        	});
+			        	//console.log(doc);
+			        	return hoodieAdmin.updateSub(id, plan, data.database)
+			        	.fail(function(data) {
+				          	console.log(data);
+				          	$btn.attr('disabled', null);
+				          	return $form.find('.submitMessage').text("Error: could not update plan");
+			        	})
+			        	.done(function(data) {
+			        		console.log(data);
+			        		$btn.attr('disabled', null);
+			        		return $form.find('.submitMessage').text("Plan updated");
+			        	});
+			        });
+	        });
+      } else {
+        return $form.find('.submitMessage').text("You didn't change anything.");
+      }
+    };
+
+UsersView.prototype.listPlans = function(event) {
+    	var $btn, $form, id, plan;
+      	$form = $(event.currentTarget);
+      	$btn = $form.find('[type="submit"]');
+      	return hoodieAdmin.listPlans()
+      	.fail(function(data) {
+	          $btn.attr('disabled', null);
+	          return $form.find('.submitMessage').text("Error: could not list all plans");
+	    })
+	    .done(function(data) {
+	    	console.log(data);
+	    	$btn.attr('disabled', null);
+			return $form.find('.submitMessage').text("Plan updated");
+	    });
+};
+
+function handleFreePlan(plan) {
+			if (plan === 'Basic' || plan === 'Pro') {
+	  		return plan;
+	  	} else {
+	  		return 'Free';
+	  	}
+	};
+
+hoodieAdmin.updateSub = function(username, plan, originDb) {
+		plan = handleFreePlan(plan); //function that sets plan to 'Free' if not provided or invalid
+	  	return hoodieAdmin.request('get', 'http://127.0.0.1:6011/_api/_plugins/stripe/_api', {
+	  		headers: {
+	  			'Content-Type': 'application/json'
+	  		},
+	  		data: {
+	  			subtype: 'customers.updateSubscription',
+	  			plan: plan,
+	  			id: username,
+	  			planType: 'prototypoOwnSubscription',
+	  			originDb: originDb
+	  		}
+	  	}); // we should be able to get the url by passing hoodie.env from server to client
+	}
+
+hoodieAdmin.listPlans = function(callback) {
+		var stripe = Stripe('sk_test_2NvMCNbqfLlNXQU5MHxoQkUD');
+		stripe.plans.list(function(error, plans) {
+		if (error) {
+				console.log('ERROR STORING STRIPE CUSTOMER DATA ON USER OBJECT');
+				return callback(error);
+			}
+		console.log(plans);
+		return callback(null);
+	});
+		// return hoodieAdmin.request('get', 'http://127.0.0.1:6011/_api/_plugins/stripe/_api', {
+	 //  		headers: {
+	 //  			'Content-Type': 'application/json'
+	 //  		},
+	 //  		data: {
+	 //  			subtype: 'plans.list'
+	 //  		}
+	 //  	});
+};
+
+'submit form.updatePlan': 'updatePlan',
